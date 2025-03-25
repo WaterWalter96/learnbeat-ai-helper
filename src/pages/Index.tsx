@@ -1,13 +1,43 @@
-// Update this page (the content is just a fallback if you fail to update the page)
 
-const Index = () => {
+import React, { useState } from 'react';
+import { Routes, Route } from 'react-router-dom';
+import Layout from '../components/Layout';
+import TextSelector from '../components/TextSelector';
+import AiResponse from '../components/AiResponse';
+import SocialLinks from '../components/SocialLinks';
+
+// Main Page Component
+const MainPage: React.FC = () => {
+  const [selectedText, setSelectedText] = useState('');
+  
+  const handleTextSelected = (text: string) => {
+    setSelectedText(text);
+  };
+  
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
-      </div>
-    </div>
+    <Layout>
+      <TextSelector onTextSelected={handleTextSelected} />
+      <AiResponse selectedText={selectedText} />
+    </Layout>
+  );
+};
+
+// Social Page Component
+const SocialPage: React.FC = () => {
+  return (
+    <Layout>
+      <SocialLinks />
+    </Layout>
+  );
+};
+
+// Index Component with Routes
+const Index: React.FC = () => {
+  return (
+    <Routes>
+      <Route path="/" element={<MainPage />} />
+      <Route path="/social" element={<SocialPage />} />
+    </Routes>
   );
 };
 
