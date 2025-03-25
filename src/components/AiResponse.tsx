@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 interface AiResponseProps {
   selectedText: string;
@@ -13,6 +14,7 @@ const AiResponse: React.FC<AiResponseProps> = ({ selectedText }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiResponse, setAiResponse] = useState('');
   const [error, setError] = useState('');
+  const { toast } = useToast();
   
   // Generate AI response
   const generateResponse = async () => {
@@ -64,26 +66,38 @@ const AiResponse: React.FC<AiResponseProps> = ({ selectedText }) => {
   const fillResponseInPage = () => {
     if (!aiResponse) return;
     
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const activeTab = tabs[0];
-      if (activeTab?.id) {
-        chrome.tabs.sendMessage(
-          activeTab.id,
-          { action: "fillText", text: aiResponse },
-          (response) => {
-            if (chrome.runtime.lastError) {
-              console.error(chrome.runtime.lastError);
-              setError('Kon het antwoord niet invullen. Klik op een tekstveld op de pagina.');
-              return;
+    // Check if running in a Chrome extension environment
+    if (typeof chrome !== 'undefined' && chrome.tabs) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const activeTab = tabs[0];
+        if (activeTab?.id) {
+          chrome.tabs.sendMessage(
+            activeTab.id,
+            { action: "fillText", text: aiResponse },
+            (response) => {
+              if (chrome.runtime.lastError) {
+                console.error(chrome.runtime.lastError);
+                setError('Kon het antwoord niet invullen. Klik op een tekstveld op de pagina.');
+                return;
+              }
+              
+              if (response && response.success) {
+                toast({
+                  title: "Invullen Gestart",
+                  description: "Klik op een invoerveld op de pagina om het antwoord in te vullen.",
+                });
+              }
             }
-            
-            if (response && response.success) {
-              // Text filled successfully
-            }
-          }
-        );
-      }
-    });
+          );
+        }
+      });
+    } else {
+      // For demo mode when not running as extension
+      toast({
+        title: "Demo Modus",
+        description: "Dit is een demo. In de echte extensie kunt u het antwoord invullen op de pagina.",
+      });
+    }
   };
   
   // Simulate AI response (in a real extension, this would call an actual AI API)

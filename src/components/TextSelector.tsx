@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 interface TextSelectorProps {
   onTextSelected: (text: string) => void;
@@ -8,50 +9,70 @@ interface TextSelectorProps {
 const TextSelector: React.FC<TextSelectorProps> = ({ onTextSelected }) => {
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedText, setSelectedText] = useState('');
+  const { toast } = useToast();
   
   // Function to request text selection from content script
   const requestTextSelection = () => {
     setIsSelecting(true);
     
-    // Send message to content script to start selection mode
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const activeTab = tabs[0];
-      if (activeTab?.id) {
-        chrome.tabs.sendMessage(
-          activeTab.id,
-          { action: "startSelection" },
-          (response) => {
-            if (chrome.runtime.lastError) {
-              console.error(chrome.runtime.lastError);
-              setIsSelecting(false);
-              return;
+    // Check if running in a Chrome extension environment
+    if (typeof chrome !== 'undefined' && chrome.tabs) {
+      // Send message to content script to start selection mode
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const activeTab = tabs[0];
+        if (activeTab?.id) {
+          chrome.tabs.sendMessage(
+            activeTab.id,
+            { action: "startSelection" },
+            (response) => {
+              if (chrome.runtime.lastError) {
+                console.error(chrome.runtime.lastError);
+                setIsSelecting(false);
+                toast({
+                  title: "Fout",
+                  description: "Kon niet verbinden met de pagina. Probeer de pagina te verversen.",
+                  variant: "destructive"
+                });
+                return;
+              }
+              
+              if (response && response.success) {
+                // Selection mode started, wait for text
+                console.log("Selection mode activated");
+              }
             }
-            
-            if (response && response.success) {
-              // Selection mode started, wait for text
-              console.log("Selection mode activated");
-            }
-          }
-        );
-      }
-    });
+          );
+        }
+      });
+    } else {
+      // For demo mode when not running as extension
+      setSelectedText("Dit is een voorbeeldtekst. In de echte extensie kunt u tekst selecteren van de pagina.");
+      setIsSelecting(false);
+      onTextSelected("Dit is een voorbeeldtekst. In de echte extensie kunt u tekst selecteren van de pagina.");
+      toast({
+        title: "Demo Modus",
+        description: "Dit is een demo. In de echte extensie kunt u tekst selecteren van de pagina.",
+      });
+    }
   };
   
   // Listen for text selection from content script
   useEffect(() => {
-    const handleMessage = (message: any) => {
-      if (message.action === "textSelected" && message.text) {
-        setSelectedText(message.text);
-        setIsSelecting(false);
-        onTextSelected(message.text);
-      }
-    };
-    
-    chrome.runtime.onMessage.addListener(handleMessage);
-    
-    return () => {
-      chrome.runtime.onMessage.removeListener(handleMessage);
-    };
+    if (typeof chrome !== 'undefined' && chrome.runtime) {
+      const handleMessage = (message: any) => {
+        if (message.action === "textSelected" && message.text) {
+          setSelectedText(message.text);
+          setIsSelecting(false);
+          onTextSelected(message.text);
+        }
+      };
+      
+      chrome.runtime.onMessage.addListener(handleMessage);
+      
+      return () => {
+        chrome.runtime.onMessage.removeListener(handleMessage);
+      };
+    }
   }, [onTextSelected]);
   
   return (
