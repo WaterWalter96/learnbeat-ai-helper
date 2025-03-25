@@ -8,6 +8,13 @@ let isInputSelectionMode = false;
 
 // Listen for messages from popup or background
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Handle getting already selected text
+  if (message.action === "getSelectedText") {
+    const selectedText = window.getSelection().toString();
+    sendResponse({ text: selectedText });
+    return true;
+  }
+  
   // Handle text selection mode
   if (message.action === "startSelection") {
     isSelectionMode = true;

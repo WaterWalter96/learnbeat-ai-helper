@@ -24,13 +24,13 @@ declare namespace chrome {
     
     export type MessageCallback = (message: any, sender: MessageSender, sendResponse: (response?: any) => void) => void | boolean;
     
-    export interface RuntimeEvent {
+    export interface OnMessageEvent {
       addListener(callback: MessageCallback): void;
       removeListener(callback: MessageCallback): void;
       hasListeners(): boolean;
     }
     
-    export const onMessage: RuntimeEvent;
+    export const onMessage: OnMessageEvent;
   }
   
   export namespace scripting {

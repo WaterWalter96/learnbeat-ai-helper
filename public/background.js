@@ -8,22 +8,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "getSelectedText") {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]?.id) {
-        chrome.scripting.executeScript(
-          {
-            target: { tabId: tabs[0].id },
-            function: getSelectedText
-          },
-          (injectionResults) => {
+        chrome.tabs.sendMessage(
+          tabs[0].id,
+          { action: "getSelectedText" },
+          (response) => {
             if (chrome.runtime.lastError) {
               console.error(chrome.runtime.lastError);
               sendResponse({ success: false, error: chrome.runtime.lastError });
               return;
             }
             
-            if (injectionResults && injectionResults[0]) {
-              sendResponse({ success: true, text: injectionResults[0].result });
+            if (response && response.text) {
+              sendResponse({ success: true, text: response.text });
             } else {
-              sendResponse({ success: false, error: "No text selected" });
+              sendResponse({ success: false, text: "" });
             }
           }
         );

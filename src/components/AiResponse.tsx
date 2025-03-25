@@ -20,10 +20,10 @@ const AiResponse: React.FC<AiResponseProps> = ({ selectedText }) => {
   // Generate AI response
   const generateResponse = async () => {
     if (!selectedText) {
-      setError('Selecteer eerst een tekst');
+      setError('Selecteer of plak eerst een tekst');
       toast({
         title: "Fout",
-        description: "Selecteer eerst een tekst voordat je een antwoord genereert.",
+        description: "Selecteer of plak eerst een tekst voordat je een antwoord genereert.",
         variant: "destructive"
       });
       return;
