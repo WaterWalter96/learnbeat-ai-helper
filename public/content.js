@@ -8,9 +8,12 @@ let isInputSelectionMode = false;
 
 // Listen for messages from popup or background
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log("Content script received message:", message);
+  
   // Handle getting already selected text
   if (message.action === "getSelectedText") {
     const selectedText = window.getSelection().toString();
+    console.log("Selected text:", selectedText);
     sendResponse({ text: selectedText });
     return true;
   }
@@ -151,6 +154,8 @@ function handleTextSelection(e) {
     action: "textSelected", 
     text: selectedText 
   });
+  
+  console.log("Text selected and sent to extension:", selectedText);
 }
 
 // Initialize the content script

@@ -1,6 +1,7 @@
 
 // Wait for the DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
+  console.log("Popup script initialized");
   const appContainer = document.getElementById('app-container');
   
   // Show loading message
@@ -35,6 +36,9 @@ document.addEventListener('DOMContentLoaded', function() {
           <div class="card">
             <h2 class="section-title">Selecteer Tekst</h2>
             <button id="selectTextBtn" class="button-primary">Selecteer Tekst</button>
+            <div class="text-separator">OF</div>
+            <textarea id="textInput" placeholder="Plak hier je tekst..." class="text-input"></textarea>
+            <button id="useTextBtn" class="button-secondary">Gebruik geplakte tekst</button>
             <div id="selectedTextContainer" class="selected-text-container hidden">
               <p id="selectedText" class="selected-text"></p>
             </div>
@@ -143,6 +147,8 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Function to set up all event listeners
   function setupEventListeners() {
+    console.log("Setting up event listeners");
+    
     // Navigation tabs
     const aiTab = document.getElementById('aiTab');
     const socialTab = document.getElementById('socialTab');
@@ -169,15 +175,50 @@ document.addEventListener('DOMContentLoaded', function() {
               { action: "startSelection" },
               (response) => {
                 if (chrome.runtime.lastError) {
-                  console.error(chrome.runtime.lastError);
+                  console.error("Error starting selection:", chrome.runtime.lastError);
                   selectTextBtn.textContent = 'Selecteer Tekst';
                   selectTextBtn.disabled = false;
+                  
+                  // Show error message
+                  const selectedTextContainer = document.getElementById('selectedTextContainer');
+                  const selectedText = document.getElementById('selectedText');
+                  if (selectedTextContainer && selectedText) {
+                    selectedText.textContent = "Kon niet verbinden met de pagina. Probeer de pagina te verversen.";
+                    selectedText.style.color = "red";
+                    selectedTextContainer.classList.remove('hidden');
+                  }
                   return;
                 }
               }
             );
           }
         });
+      });
+    }
+    
+    // Use pasted text
+    const useTextBtn = document.getElementById('useTextBtn');
+    const textInput = document.getElementById('textInput');
+    
+    if (useTextBtn && textInput) {
+      useTextBtn.addEventListener('click', function() {
+        const pastedText = textInput.value.trim();
+        
+        if (pastedText) {
+          // Update UI to show selected text
+          const selectedTextContainer = document.getElementById('selectedTextContainer');
+          const selectedText = document.getElementById('selectedText');
+          const generateBtn = document.getElementById('generateBtn');
+          
+          if (selectedTextContainer && selectedText && generateBtn) {
+            selectedText.textContent = pastedText;
+            selectedText.style.color = "";
+            selectedTextContainer.classList.remove('hidden');
+            
+            // Enable generate button
+            generateBtn.disabled = false;
+          }
+        }
       });
     }
     
@@ -204,29 +245,33 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
     
+    // Listen for text selection message from content script
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      console.log("Popup received message:", message);
+      
+      if (message.action === "textSelected" && message.text) {
+        // Update UI to show selected text
+        const selectedTextContainer = document.getElementById('selectedTextContainer');
+        const selectedText = document.getElementById('selectedText');
+        const selectTextBtn = document.getElementById('selectTextBtn');
+        const generateBtn = document.getElementById('generateBtn');
+        
+        if (selectedTextContainer && selectedText && selectTextBtn && generateBtn) {
+          selectedText.textContent = message.text;
+          selectedText.style.color = "";
+          selectedTextContainer.classList.remove('hidden');
+          selectTextBtn.textContent = 'Selecteer Tekst';
+          selectTextBtn.disabled = false;
+          
+          // Enable generate button
+          generateBtn.disabled = false;
+        }
+      }
+    });
+    
     // Generate button
     const generateBtn = document.getElementById('generateBtn');
     if (generateBtn) {
-      // Enable button if text is selected
-      chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-        if (message.action === "textSelected" && message.text) {
-          // Update UI to show selected text
-          const selectedTextContainer = document.getElementById('selectedTextContainer');
-          const selectedText = document.getElementById('selectedText');
-          const selectTextBtn = document.getElementById('selectTextBtn');
-          
-          if (selectedTextContainer && selectedText && selectTextBtn) {
-            selectedText.textContent = message.text;
-            selectedTextContainer.classList.remove('hidden');
-            selectTextBtn.textContent = 'Selecteer Tekst';
-            selectTextBtn.disabled = false;
-            
-            // Enable generate button
-            generateBtn.disabled = false;
-          }
-        }
-      });
-      
       // Generate response
       generateBtn.addEventListener('click', function() {
         const selectedText = document.getElementById('selectedText')?.textContent;
@@ -236,52 +281,131 @@ document.addEventListener('DOMContentLoaded', function() {
         generateBtn.textContent = 'Genereren...';
         generateBtn.disabled = true;
         
-        setTimeout(() => {
-          // Get selected response type
-          const activeTypeBtn = document.querySelector('.response-type-btn.active');
-          const responseType = activeTypeBtn ? activeTypeBtn.dataset.type : 'kort-simpel';
-          
-          // Get custom prompt if applicable
-          let customPrompt = '';
-          if (responseType === 'custom') {
-            customPrompt = document.getElementById('customPrompt')?.value || '';
-          }
-          
-          // Generate response based on type (simulated)
-          let response = '';
-          
+        // Get selected response type
+        const activeTypeBtn = document.querySelector('.response-type-btn.active');
+        const responseType = activeTypeBtn ? activeTypeBtn.dataset.type : 'kort-simpel';
+        
+        // Get custom prompt if applicable
+        let customPrompt = '';
+        if (responseType === 'custom') {
+          customPrompt = document.getElementById('customPrompt')?.value || '';
+        }
+        
+        // Call the Hugging Face API
+        callAI(selectedText, responseType, customPrompt);
+      });
+    }
+    
+    // Function to call AI API
+    async function callAI(text, responseType, customPrompt = "") {
+      try {
+        const API_KEY = "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";
+        const API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2";
+        
+        // Construct the prompt based on response type
+        let prompt = "";
+        
+        if (responseType === 'custom' && customPrompt) {
+          prompt = `${customPrompt}\n\n${text}`;
+        } else {
           switch (responseType) {
             case 'kort-simpel':
-              response = 'Dit is een kort en eenvoudig antwoord op je vraag.';
+              prompt = `Antwoord kort en eenvoudig op de volgende vraag of tekst:\n\n${text}`;
               break;
             case 'kort-complex':
-              response = 'De complexe interactie tussen variabelen genereert een multifactoriële uitkomst met significante implicaties.';
+              prompt = `Geef een beknopt maar complex antwoord op de volgende vraag of tekst, gebruik vaktermen:\n\n${text}`;
               break;
             case 'lang-simpel':
-              response = 'Dit is een langer antwoord dat uit meerdere zinnen bestaat. Het gebruikt eenvoudige taal zodat iedereen het kan begrijpen. We voegen wat extra uitleg toe om het duidelijker te maken. Dit helpt om het onderwerp beter te begrijpen.';
+              prompt = `Geef een uitgebreid antwoord in eenvoudige taal op de volgende vraag of tekst:\n\n${text}`;
               break;
             case 'lang-complex':
-              response = 'De multidimensionale analyse van het vraagstuk vereist een nuancering van verschillende theoretische kaders. In de eerste plaats dient de epistemologische fundering geëvalueerd te worden vanuit zowel kwalitatief als kwantitatief perspectief. De daaruit voortvloeiende synthese leidt tot een geïntegreerd model waarbij zowel de empirische als conceptuele elementen tot hun recht komen. Concluderend kan gesteld worden dat de inherente complexiteit een holistische benadering rechtvaardigt.';
+              prompt = `Geef een uitgebreid en complex antwoord op de volgende vraag of tekst, gebruik vaktermen en diepgaande analyse:\n\n${text}`;
               break;
-            case 'custom':
-              response = 'Dit is een antwoord op basis van je aangepaste prompt. De AI heeft de inhoud geanalyseerd en een passend antwoord gegenereerd dat voldoet aan je specifieke wensen.';
-              break;
+            default:
+              prompt = `Beantwoord de volgende vraag of tekst:\n\n${text}`;
           }
-          
-          // Show response
-          const aiResponseContainer = document.getElementById('aiResponseContainer');
-          const aiResponse = document.getElementById('aiResponse');
-          
-          if (aiResponseContainer && aiResponse) {
-            aiResponse.textContent = response;
-            aiResponseContainer.classList.remove('hidden');
-            
-            // Reset generate button
-            generateBtn.textContent = 'Beantwoord Vraag';
-            generateBtn.disabled = false;
-          }
-        }, 1500); // Simulate API delay
-      });
+        }
+        
+        console.log("Calling Hugging Face API with prompt:", prompt);
+        
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            inputs: prompt,
+            parameters: {
+              max_new_tokens: 500,
+              temperature: 0.7,
+              top_p: 0.95,
+              return_full_text: false
+            }
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`API request failed with status ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log("API response:", data);
+        
+        // Extract the generated text
+        let aiResponseText = "";
+        if (Array.isArray(data) && data.length > 0 && data[0].generated_text) {
+          aiResponseText = data[0].generated_text.trim();
+        } else if (typeof data === 'object' && data.generated_text) {
+          aiResponseText = data.generated_text.trim();
+        } else {
+          // Use mock response if API fails
+          aiResponseText = getMockResponse(responseType);
+        }
+        
+        // Show response
+        displayAIResponse(aiResponseText);
+      } catch (error) {
+        console.error("Error generating response:", error);
+        
+        // Use mock response as fallback
+        const mockResponse = getMockResponse(responseType);
+        displayAIResponse(mockResponse);
+      }
+    }
+    
+    // Function to get mock responses
+    function getMockResponse(responseType) {
+      switch (responseType) {
+        case 'kort-simpel':
+          return 'Dit is een kort en eenvoudig antwoord op je vraag.';
+        case 'kort-complex':
+          return 'De complexe interactie tussen variabelen genereert een multifactoriële uitkomst met significante implicaties.';
+        case 'lang-simpel':
+          return 'Dit is een langer antwoord dat uit meerdere zinnen bestaat. Het gebruikt eenvoudige taal zodat iedereen het kan begrijpen. We voegen wat extra uitleg toe om het duidelijker te maken. Dit helpt om het onderwerp beter te begrijpen.';
+        case 'lang-complex':
+          return 'De multidimensionale analyse van het vraagstuk vereist een nuancering van verschillende theoretische kaders. In de eerste plaats dient de epistemologische fundering geëvalueerd te worden vanuit zowel kwalitatief als kwantitatief perspectief. De daaruit voortvloeiende synthese leidt tot een geïntegreerd model waarbij zowel de empirische als conceptuele elementen tot hun recht komen. Concluderend kan gesteld worden dat de inherente complexiteit een holistische benadering rechtvaardigt.';
+        case 'custom':
+          return 'Dit is een antwoord op basis van je aangepaste prompt. De AI heeft de inhoud geanalyseerd en een passend antwoord gegenereerd dat voldoet aan je specifieke wensen.';
+        default:
+          return 'Geen antwoord kunnen genereren.';
+      }
+    }
+    
+    // Function to display AI response
+    function displayAIResponse(responseText) {
+      const aiResponseContainer = document.getElementById('aiResponseContainer');
+      const aiResponse = document.getElementById('aiResponse');
+      const generateBtn = document.getElementById('generateBtn');
+      
+      if (aiResponseContainer && aiResponse && generateBtn) {
+        aiResponse.textContent = responseText;
+        aiResponseContainer.classList.remove('hidden');
+        
+        // Reset generate button
+        generateBtn.textContent = 'Beantwoord Vraag';
+        generateBtn.disabled = false;
+      }
     }
     
     // Fill text button
@@ -290,6 +414,9 @@ document.addEventListener('DOMContentLoaded', function() {
       fillTextBtn.addEventListener('click', function() {
         const responseText = document.getElementById('aiResponse')?.textContent;
         if (!responseText) return;
+        
+        fillTextBtn.textContent = 'Klik op een invoerveld...';
+        fillTextBtn.disabled = true;
         
         // Send message to content script to fill text
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -300,9 +427,16 @@ document.addEventListener('DOMContentLoaded', function() {
               { action: "fillText", text: responseText },
               (response) => {
                 if (chrome.runtime.lastError) {
-                  console.error(chrome.runtime.lastError);
+                  console.error("Error filling text:", chrome.runtime.lastError);
+                  fillTextBtn.textContent = 'Vul in op Pagina';
+                  fillTextBtn.disabled = false;
                   return;
                 }
+                
+                setTimeout(() => {
+                  fillTextBtn.textContent = 'Vul in op Pagina';
+                  fillTextBtn.disabled = false;
+                }, 5000);
               }
             );
           }

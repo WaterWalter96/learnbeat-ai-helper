@@ -2,8 +2,12 @@
 // Background script for LearnbeatAI Chrome Extension
 // Handles communication between popup and content scripts
 
+console.log("Background script initialized");
+
 // Listen for messages from popup or content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log("Background received message:", message);
+  
   // Handle 'getSelectedText' message
   if (message.action === "getSelectedText") {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -75,6 +79,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     });
     return true; // Required for async response
+  }
+
+  // Relay messages from content script to popup
+  if (message.action === "textSelected" || message.action === "textFilled") {
+    // Just log it and let the popup handle it
+    console.log("Relaying message to popup:", message);
   }
 });
 

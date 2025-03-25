@@ -37,6 +37,15 @@ declare namespace chrome {
     export function executeScript<T>(details: {target: {tabId: number}, function: () => T}, callback: (results: {result: T}[]) => void): void;
   }
   
+  export namespace storage {
+    export const local: {
+      get(keys: string | string[] | Object | null, callback: (items: { [key: string]: any }) => void): void;
+      set(items: Object, callback?: () => void): void;
+      remove(keys: string | string[], callback?: () => void): void;
+      clear(callback?: () => void): void;
+    };
+  }
+  
   export interface Tab {
     id?: number;
     url?: string;

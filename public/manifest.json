@@ -5,7 +5,7 @@
   "version": "1.0",
   "description": "Gebruik AI om snel vragen te beantwoorden",
   "permissions": ["activeTab", "storage", "scripting"],
-  "host_permissions": ["https://*/*"],
+  "host_permissions": ["https://*/*", "http://*/*"],
   "background": {
     "service_worker": "background.js"
   },
@@ -19,7 +19,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://*/*"],
+      "matches": ["<all_urls>"],
       "js": ["content.js"]
     }
   ],
