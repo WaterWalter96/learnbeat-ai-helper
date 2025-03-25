@@ -1,12 +1,13 @@
 
 import React, { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { generateAIResponse, generateMockResponse, type ResponseType } from '@/services/aiService';
 
 interface AiResponseProps {
   selectedText: string;
 }
-
-type ResponseType = 'kort-simpel' | 'kort-complex' | 'lang-simpel' | 'lang-complex' | 'custom';
 
 const AiResponse: React.FC<AiResponseProps> = ({ selectedText }) => {
   const [responseType, setResponseType] = useState<ResponseType>('kort-simpel');
@@ -20,43 +21,43 @@ const AiResponse: React.FC<AiResponseProps> = ({ selectedText }) => {
   const generateResponse = async () => {
     if (!selectedText) {
       setError('Selecteer eerst een tekst');
+      toast({
+        title: "Fout",
+        description: "Selecteer eerst een tekst voordat je een antwoord genereert.",
+        variant: "destructive"
+      });
       return;
     }
     
     setIsGenerating(true);
     setError('');
     
-    // Construct the prompt based on the selected response type
-    let prompt = '';
-    
-    switch (responseType) {
-      case 'kort-simpel':
-        prompt = `Geef een kort en simpel antwoord van één zin op de volgende vraag of tekst. Gebruik eenvoudige taal: ${selectedText}`;
-        break;
-      case 'kort-complex':
-        prompt = `Geef een kort maar complex antwoord van één zin op de volgende vraag of tekst. Gebruik vakjargon waar nodig: ${selectedText}`;
-        break;
-      case 'lang-simpel':
-        prompt = `Geef een uitgebreid maar simpel antwoord van meerdere zinnen op de volgende vraag of tekst. Gebruik eenvoudige taal: ${selectedText}`;
-        break;
-      case 'lang-complex':
-        prompt = `Geef een uitgebreid en complex antwoord van meerdere zinnen op de volgende vraag of tekst. Gebruik vakjargon en gedetailleerde uitleg: ${selectedText}`;
-        break;
-      case 'custom':
-        prompt = `${customPrompt}: ${selectedText}`;
-        break;
-      default:
-        prompt = `Beantwoord de volgende vraag of tekst: ${selectedText}`;
-    }
-    
     try {
-      // In a real implementation, you would call an actual AI API here
-      // For this demo, we'll simulate an AI response
-      const response = await simulateAiResponse(prompt);
+      let response: string;
+      
+      // Check if we're in a Chrome extension environment
+      if (typeof chrome !== 'undefined' && chrome.runtime) {
+        // Use real API
+        response = await generateAIResponse(selectedText, responseType, responseType === 'custom' ? customPrompt : undefined);
+      } else {
+        // Use mock for development
+        response = await generateMockResponse(responseType);
+      }
+      
       setAiResponse(response);
+      
+      toast({
+        title: "Antwoord gegenereerd",
+        description: "De AI heeft een antwoord gegenereerd op basis van je tekst.",
+      });
     } catch (err) {
+      console.error('Error generating response:', err);
       setError('Er is een fout opgetreden bij het genereren van het antwoord.');
-      console.error(err);
+      toast({
+        title: "Fout",
+        description: "Er is een fout opgetreden bij het genereren van het antwoord.",
+        variant: "destructive"
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -78,6 +79,11 @@ const AiResponse: React.FC<AiResponseProps> = ({ selectedText }) => {
               if (chrome.runtime.lastError) {
                 console.error(chrome.runtime.lastError);
                 setError('Kon het antwoord niet invullen. Klik op een tekstveld op de pagina.');
+                toast({
+                  title: "Fout",
+                  description: "Kon het antwoord niet invullen. Klik op een tekstveld op de pagina.",
+                  variant: "destructive"
+                });
                 return;
               }
               
@@ -98,26 +104,6 @@ const AiResponse: React.FC<AiResponseProps> = ({ selectedText }) => {
         description: "Dit is een demo. In de echte extensie kunt u het antwoord invullen op de pagina.",
       });
     }
-  };
-  
-  // Simulate AI response (in a real extension, this would call an actual AI API)
-  const simulateAiResponse = (prompt: string): Promise<string> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        // Simplified simulation of different response types
-        if (prompt.includes('kort-simpel')) {
-          resolve('Dit is een kort en eenvoudig antwoord op je vraag.');
-        } else if (prompt.includes('kort-complex')) {
-          resolve('De complexe interactie tussen variabelen genereert een multifactoriële uitkomst met significante implicaties.');
-        } else if (prompt.includes('lang-simpel')) {
-          resolve('Dit is een langer antwoord dat uit meerdere zinnen bestaat. Het gebruikt eenvoudige taal zodat iedereen het kan begrijpen. We voegen wat extra uitleg toe om het duidelijker te maken. Dit helpt om het onderwerp beter te begrijpen.');
-        } else if (prompt.includes('lang-complex')) {
-          resolve('De multidimensionale analyse van het vraagstuk vereist een nuancering van verschillende theoretische kaders. In de eerste plaats dient de epistemologische fundering geëvalueerd te worden vanuit zowel kwalitatief als kwantitatief perspectief. De daaruit voortvloeiende synthese leidt tot een geïntegreerd model waarbij zowel de empirische als conceptuele elementen tot hun recht komen. Concluderend kan gesteld worden dat de inherente complexiteit een holistische benadering rechtvaardigt.');
-        } else {
-          resolve('Dit is een antwoord op basis van je aangepaste prompt. De AI heeft de inhoud geanalyseerd en een passend antwoord gegenereerd dat voldoet aan je specifieke wensen.');
-        }
-      }, 1500); // Simulate API delay
-    });
   };
   
   return (
@@ -162,7 +148,7 @@ const AiResponse: React.FC<AiResponseProps> = ({ selectedText }) => {
           </button>
           
           {responseType === 'custom' && (
-            <textarea
+            <Textarea
               value={customPrompt}
               onChange={(e) => setCustomPrompt(e.target.value)}
               placeholder="Bijv: Geef een samenvatting in 3 bullet points..."
@@ -172,7 +158,7 @@ const AiResponse: React.FC<AiResponseProps> = ({ selectedText }) => {
         </div>
         
         {/* Generate button */}
-        <button
+        <Button
           onClick={generateResponse}
           disabled={isGenerating || !selectedText}
           className={`premium-button w-full ${
@@ -180,7 +166,7 @@ const AiResponse: React.FC<AiResponseProps> = ({ selectedText }) => {
           }`}
         >
           {isGenerating ? 'Genereren...' : 'Beantwoord Vraag'}
-        </button>
+        </Button>
         
         {/* Error message */}
         {error && (
@@ -196,12 +182,13 @@ const AiResponse: React.FC<AiResponseProps> = ({ selectedText }) => {
               <p className="text-sm">{aiResponse}</p>
             </div>
             
-            <button
+            <Button
               onClick={fillResponseInPage}
               className="premium-button button-accent w-full"
+              variant="default"
             >
               Vul in op Pagina
-            </button>
+            </Button>
           </div>
         )}
       </div>

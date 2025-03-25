@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
 
 interface TextSelectorProps {
   onTextSelected: (text: string) => void;
@@ -26,7 +27,7 @@ const TextSelector: React.FC<TextSelectorProps> = ({ onTextSelected }) => {
             { action: "startSelection" },
             (response) => {
               if (chrome.runtime.lastError) {
-                console.error(chrome.runtime.lastError);
+                console.error("Chrome runtime error:", chrome.runtime.lastError);
                 setIsSelecting(false);
                 toast({
                   title: "Fout",
@@ -39,9 +40,25 @@ const TextSelector: React.FC<TextSelectorProps> = ({ onTextSelected }) => {
               if (response && response.success) {
                 // Selection mode started, wait for text
                 console.log("Selection mode activated");
+              } else {
+                // Something went wrong with the content script
+                setIsSelecting(false);
+                toast({
+                  title: "Fout",
+                  description: "Er is een probleem opgetreden bij het starten van de tekstselectie.",
+                  variant: "destructive"
+                });
               }
             }
           );
+        } else {
+          // No active tab
+          setIsSelecting(false);
+          toast({
+            title: "Fout",
+            description: "Kon geen actief tabblad vinden.",
+            variant: "destructive"
+          });
         }
       });
     } else {
@@ -62,8 +79,12 @@ const TextSelector: React.FC<TextSelectorProps> = ({ onTextSelected }) => {
       setSelectedText(message.text);
       setIsSelecting(false);
       onTextSelected(message.text);
+      toast({
+        title: "Tekst Geselecteerd",
+        description: "De geselecteerde tekst is succesvol verwerkt.",
+      });
     }
-  }, [onTextSelected]);
+  }, [onTextSelected, toast]);
   
   // Listen for text selection from content script
   useEffect(() => {
@@ -81,13 +102,14 @@ const TextSelector: React.FC<TextSelectorProps> = ({ onTextSelected }) => {
       <h2 className="section-title">Selecteer Tekst</h2>
       
       <div className="space-y-4">
-        <button 
+        <Button 
           onClick={requestTextSelection}
           disabled={isSelecting}
           className={`premium-button w-full ${isSelecting ? 'opacity-70 cursor-not-allowed' : ''}`}
+          variant="default"
         >
           {isSelecting ? 'Klik op een tekstelement...' : 'Selecteer Tekst'}
-        </button>
+        </Button>
         
         {selectedText && (
           <div className="bg-ext-medium/50 border border-ext-accent/20 rounded-md p-3 max-h-[150px] overflow-y-auto">
