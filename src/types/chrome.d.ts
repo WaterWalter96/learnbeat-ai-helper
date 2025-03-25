@@ -7,14 +7,30 @@ declare namespace chrome {
   }
   
   export namespace runtime {
-    export function onMessage(listener: (message: any, sender: any, sendResponse: (response?: any) => void) => void | boolean): void;
-    export function onMessage(listener: (message: any, sender: any, sendResponse: (response?: any) => void) => void | boolean): void;
     export function sendMessage(message: any, callback?: (response: any) => void): void;
     export const lastError: chrome.runtime.LastError | undefined;
     
     export interface LastError {
       message?: string;
     }
+    
+    export interface MessageSender {
+      tab?: chrome.tabs.Tab;
+      frameId?: number;
+      id?: string;
+      url?: string;
+      tlsChannelId?: string;
+    }
+    
+    export type MessageCallback = (message: any, sender: MessageSender, sendResponse: (response?: any) => void) => void | boolean;
+    
+    export interface RuntimeEvent {
+      addListener(callback: MessageCallback): void;
+      removeListener(callback: MessageCallback): void;
+      hasListeners(): boolean;
+    }
+    
+    export const onMessage: RuntimeEvent;
   }
   
   export namespace scripting {

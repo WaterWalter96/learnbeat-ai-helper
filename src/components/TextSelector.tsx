@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 interface TextSelectorProps {
@@ -56,24 +56,25 @@ const TextSelector: React.FC<TextSelectorProps> = ({ onTextSelected }) => {
     }
   };
   
+  // Create a stable reference to the message handler function
+  const handleMessage = useCallback((message: any) => {
+    if (message.action === "textSelected" && message.text) {
+      setSelectedText(message.text);
+      setIsSelecting(false);
+      onTextSelected(message.text);
+    }
+  }, [onTextSelected]);
+  
   // Listen for text selection from content script
   useEffect(() => {
-    if (typeof chrome !== 'undefined' && chrome.runtime) {
-      const handleMessage = (message: any) => {
-        if (message.action === "textSelected" && message.text) {
-          setSelectedText(message.text);
-          setIsSelecting(false);
-          onTextSelected(message.text);
-        }
-      };
-      
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
       chrome.runtime.onMessage.addListener(handleMessage);
       
       return () => {
         chrome.runtime.onMessage.removeListener(handleMessage);
       };
     }
-  }, [onTextSelected]);
+  }, [handleMessage]);
   
   return (
     <div className="glass-card mb-6">
